@@ -6,6 +6,28 @@ import sys
 def func_dist(p1, p2):
     return math.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
 
+def func_col(cent_bal, cent_pun, velBx, velBy, reboteB):
+    dx=cent_bal[0]-cent_pun[0]
+    dy=cent_bal[1]-cent_pun[1]
+    dist=math.sqrt(dx**2+dy**2)
+    
+    if dist==0:
+        return velBx, velBy
+    
+    nx=dx/dist
+    ny=dy/dist
+    velR=velBx*nx+velBy*ny
+    
+    if velR>0:
+        return velBx, velBy
+
+    velBx-=2*velR*nx
+    velBy-=2*velR*ny
+    velBx*=reboteB
+    velBy*=reboteB
+    
+    return velBx, velBy
+
 # - - - CONSTANTES - - -
 anch, larg=800, 600 #Ancho y largo de la ventana
 grav=3708.87 #Gravedad en pixeles por segundo cuadrado
@@ -61,7 +83,8 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
         elif event.type==pygame.MOUSEMOTION and activoJ: #Si ese evento es "pygame.MOUSEMOTION" (Ratón en movimiento), y el joystick está activo
             mouse_x, mouse_y=pygame.mouse.get_pos() #Obtener la posición del mouse
             dx, dy=mouse_x-400, mouse_y-300 #Desplazamiento del mouse en cada eje respecto la posición inicial
-            dist=math.sqrt(dx**2 + dy**2) #Obtener la distancia entre la posición inicial del joystick y la del mouse
+            dist=math.sqrt(dx**2+dy**2) #Obtener la distancia entre la posición inicial del joystick y la del mouse
+            visibilidad=0, 0, 0, 150
 
             if dist>radJ: #Si la distancia es mayor al radio máximo
                 angu=math.atan2(dy, dx) #Obtener el angulo contiguo al origen, formado por el triángulo rectangulo con C.O=dy y C.A=dx, donde dy y dx son las distancias del mouse al punto inicial
@@ -150,28 +173,19 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             velBx*=reboteB #Multiplicar la velocidad en el eje X por el factor de rebote
 
         cent_bal=(posBx+45, posBy+45)
-    
-        if func_dist(cent_bal, p1)<=46:
+
+        if func_dist(cent_bal, p1)<46:
             posBx, posBy=PposBx, PposBy
-            velBx*=reboteB
-            if posBy<=160:
-                velBy*=reboteB
-            else:
-                velBy*=-reboteB
-        if func_dist(cent_bal, p2)<=46:
+            velBx, velBy=func_col(cent_bal, p1, velBx, velBy, -reboteB)
+        if func_dist(cent_bal, p2)<46:
             posBx, posBy=PposBx, PposBy
-            velBx*=reboteB
-            if posBy<=160:
-                velBy*=reboteB
-            else:
-                velBy*=-reboteB
+            velBx, velBy=func_col(cent_bal, p2, velBx, velBy, -reboteB)
 
         if tiemLanz and pygame.time.get_ticks()-tiemLanz>5000: #Si "tiemLanz" no es "None", y el tiempo transcurrido desde que se inicializo el reloj menos el tiempo que transcurrio desde el lanzamiento, es mayor a 5 segundos (5000 milisegundos)
             posBx, posBy=30, 420 #Devolverr balon a su posición inicial
             velBx, velBy=0, 0 #Igualar el valor de las velocidades en cada eje a 0
             tiemLanz=None #Reiniciar la variable "tiemLanz"
             activoB=False #Establecer al balón como inactivo
-            visibilidad=0, 0, 0, 180
 
     opacidad.fill((0, 0, 0, 0)) #Limpiar la superfice "opacidad"
 
