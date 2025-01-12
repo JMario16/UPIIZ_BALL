@@ -2,6 +2,10 @@ import pygame
 import math
 import sys
 
+# - - - FUNCIONES - - -
+def func_dist(p1, p2):
+    return math.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
+
 # - - - CONSTANTES - - -
 anch, larg=800, 600 #Ancho y largo de la ventana
 grav=3708.87 #Gravedad en pixeles por segundo cuadrado
@@ -31,6 +35,14 @@ posJx, posJy=400, 300 #Posición inicial del joystick en los ejes X, Y (x0, y0)
 radJ=120 #Radio máximo de movimiento del joystick
 activoJ=False #Variable para determinar si el joystick se esta arrastrando
 
+# - - - VARIABLES PARA LA PARÁBOLA - - -
+parabP=[]
+tiP, dtP=0, 0.08
+visibilidad=0, 0, 0, 180
+cargar=False
+p1=581, 165
+p2=703, 165
+
 clock=pygame.time.Clock() #Inicializar un reloj
 
 running=True
@@ -57,9 +69,31 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
                 posJy=300+radJ*math.sin(angu) #Recalcular posición del joystick para evitar que sobrepase el area definida en el eje Y, tomando como referencia la posición del mouse
             else:
                 posJx, posJy=mouse_x, mouse_y #La posición del joystick es igual a la posición del mouse
+
+            if not activoB:
+                tiP=0
+                parabP=[]
+                dx=posJx-400
+                dy=posJy-300
+                dist=math.sqrt(dx**2+dy**2)
+                angu=math.atan2(dy, dx)
+                    
+                if dist>0:
+                    vel=(velM/radJ)*dist    
+                    velBx=-vel*math.cos(angu)
+                    velBy=-vel*math.sin(angu)
+                else:
+                    velBx, velBy=0, 0
+
+                for i in range(1, 10):
+                    x=(posBx+45)+velBx*tiP
+                    y=(posBy+45)+velBy*tiP+0.5*grav*tiP**2
+                    parabP.append((int(x), int(y)))
+                    tiP+=dtP
+                cargar=True
         
-        elif event.type==pygame.MOUSEBUTTONUP: #Si ese evento es "pygame.MOUSEBUTTONUP" (Soltar click derecho)
-            if activoJ and activoB is False: #Si el joystick está activo
+        elif event.type==pygame.MOUSEBUTTONUP and activoJ: #Si ese evento es "pygame.MOUSEBUTTONUP" (Soltar click derecho)
+            if activoJ and not activoB: #Si el joystick está activo
                 dx=posJx-400 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje X
                 dy=posJy-300 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje X
                 dist=math.sqrt(dx**2 + dy**2) #Obtener distancia entre la posición inicial y la posición final del joystick
@@ -79,6 +113,7 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             posJx, posJy=400, 300 #Reiniciar la posición del joystick
 
     if activoB: #Si el balón está activo
+        visibilidad=0, 0, 0, 0
         dt=clock.tick(120)/1000 #Diferencial de tiempo
         PposBx, PposBy=posBx, posBy #Guardar valor de la posición en la primer iteración del reloj
         velBy+=grav*dt #Calcular la velocidad a partir de la gravedad en el eje Y
@@ -110,15 +145,33 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
         if posBx<=0: #Si la posición en el eje Y es mayor o igual al punto de colisión en el eje X, lado izquierdo
             posBx=0 #La posición de la pelota será el punto de colisión
             velBx*=reboteB #Multiplicar la velocidad en el eje X por el factor de rebote
-        if posBx>=anch-90: #Si la posición en el eje Y es mayor o igual al punto de colisión en el eje X, lado izquierdo
+        if posBx>=anch-90: #Si la posición en el eje Y es mayor o igual al punto de colisión en el eje X, lado derecho
             posBx=anch-90 #La posición de la pelota será el punto de colisión
             velBx*=reboteB #Multiplicar la velocidad en el eje X por el factor de rebote
+
+        cent_bal=(posBx+45, posBy+45)
+    
+        if func_dist(cent_bal, p1)<=46:
+            posBx, posBy=PposBx, PposBy
+            velBx*=reboteB
+            if posBy<=160:
+                velBy*=reboteB
+            else:
+                velBy*=-reboteB
+        if func_dist(cent_bal, p2)<=46:
+            posBx, posBy=PposBx, PposBy
+            velBx*=reboteB
+            if posBy<=160:
+                velBy*=reboteB
+            else:
+                velBy*=-reboteB
 
         if tiemLanz and pygame.time.get_ticks()-tiemLanz>5000: #Si "tiemLanz" no es "None", y el tiempo transcurrido desde que se inicializo el reloj menos el tiempo que transcurrio desde el lanzamiento, es mayor a 5 segundos (5000 milisegundos)
             posBx, posBy=30, 420 #Devolverr balon a su posición inicial
             velBx, velBy=0, 0 #Igualar el valor de las velocidades en cada eje a 0
             tiemLanz=None #Reiniciar la variable "tiemLanz"
             activoB=False #Establecer al balón como inactivo
+            visibilidad=0, 0, 0, 180
 
     opacidad.fill((0, 0, 0, 0)) #Limpiar la superfice "opacidad"
 
@@ -126,10 +179,24 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
     pygame.draw.circle(opacidad, (120, 120, 120, 180), (posJx, posJy), 55)
     pygame.draw.circle(opacidad, (180, 180, 180, 180), (posJx, posJy), 25)
 
+    pygame.draw.circle(opacidad, (0, 0, 0, 0), (581, 165), 1) #Dibujar puntos de colisión de la canasta
+    pygame.draw.circle(opacidad, (0, 0, 0, 0), (703, 165), 1)
+
+    if cargar==True:
+        pygame.draw.circle(opacidad, visibilidad, parabP[0], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[1], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[2], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[3], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[4], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[5], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[6], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[7], 4)
+        pygame.draw.circle(opacidad, visibilidad, parabP[8], 4)
+
     screen.fill((225, 225, 225)) #Rellenar el fondo de la ventana
     screen.blit(fondo, (0, 0)) #Insertar imagen de fondo con inicio en 0, 0
-    screen.blit(balon, (posBx, posBy)) #Insertar imagen del balon iniciando en la posición dada mediante variables 
     screen.blit(opacidad, (0, 0)) #Insertar superficie para objetos con opacidad
+    screen.blit(balon, (posBx, posBy)) #Insertar imagen del balon iniciando en la posición dada mediante variables
 
     pygame.display.flip() #Actualizar la ventana para cargar los cambios
 
