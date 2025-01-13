@@ -10,10 +10,7 @@ def func_col(cent_bal, cent_pun, velBx, velBy, reboteB):
     dx=cent_bal[0]-cent_pun[0]
     dy=cent_bal[1]-cent_pun[1]
     dist=math.sqrt(dx**2+dy**2)
-    
-    if dist==0:
-        return velBx, velBy
-    
+
     nx=dx/dist
     ny=dy/dist
     velR=velBx*nx+velBy*ny
@@ -33,6 +30,8 @@ anch, larg=800, 600 #Ancho y largo de la ventana
 grav=3708.87 #Gravedad en pixeles por segundo cuadrado
 velM=3780.71 #Velocidad máxima en pixeles por segundo
 fricc=0.25 #Constante de fricción del suelo suponiendolo de madera
+p1=581, 165 #Punto de colisión del aro 1 (izquierdo)
+p2=703, 165 #Punto de colisión del aro 2 (derecho)
 
 pygame.init() #Iniciar los modulos de la librería
 screen=pygame.display.set_mode((anch, larg)) #Dar tamaño a la ventana mediante variables
@@ -58,12 +57,25 @@ radJ=120 #Radio máximo de movimiento del joystick
 activoJ=False #Variable para determinar si el joystick se esta arrastrando
 
 # - - - VARIABLES PARA LA PARÁBOLA - - -
-parabP=[]
-tiP, dtP=0, 0.08
-visibilidad=0, 0, 0, 180
-cargar=False
-p1=581, 165
-p2=703, 165
+parabP=[] #Arreglo para guardar la posición de cada punto
+tiP, dtP=0, 0.08 #Tiempo inicial y aumento de tiempo para cada punto
+visibilidad=0, 0, 0, 150 #Variable para modificar la visibilidad de los puntos (actualmente visible)
+cargar=False #Variable para indicar al juego que cargue los puntos
+
+# - - - SISTEMA DE PUNTAJE - - -
+cont_punt=0 #Variable para contar los puntos
+encestado=False #Variable para determinar si el balon ha sido encestado
+tiempo=60 #Tiempo total de juego
+
+TIMER_EVENT=pygame.USEREVENT+1 #Crear evento
+pygame.time.set_timer(TIMER_EVENT, 1000)
+
+# - - - FUENTES PARA TEXTO - - -
+fuente=pygame.font.SysFont("Bahnschrift", 18)
+velText=fuente.render("Velocidad: 0 px/s", True, (0, 0, 0))
+anguText=fuente.render("Ángulo: 0°", True, (0, 0, 0))
+canastText=fuente.render("Canastas: 0", True, (0, 0, 0))
+tiemText=fuente.render("Tiempo: 60s", True, (0, 0, 0))
 
 clock=pygame.time.Clock() #Inicializar un reloj
 
@@ -73,6 +85,14 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
     for event in pygame.event.get(): #Para todo evento
         if event.type==pygame.QUIT: #Si ese evento es "pygame.QUIT" (Cerrar)
             running=False  #"running" sera "False". Por lo tanto se detiene el programa
+
+        elif event.type==TIMER_EVENT:
+            if tiempo>0:
+                tiempo-=1
+                tiem=f"Tiempo: {int(tiempo)} s"
+                tiemText=fuente.render(tiem, True, (0, 0, 0))
+            else:
+                running=False
 
         elif event.type==pygame.MOUSEBUTTONDOWN: #Si ese evento es "pygame.MOUSEBUTTONDOWN" (Click derecho)
             mouse_x, mouse_y=pygame.mouse.get_pos() #Obtener la posición del mouse
@@ -84,7 +104,7 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             mouse_x, mouse_y=pygame.mouse.get_pos() #Obtener la posición del mouse
             dx, dy=mouse_x-400, mouse_y-300 #Desplazamiento del mouse en cada eje respecto la posición inicial
             dist=math.sqrt(dx**2+dy**2) #Obtener la distancia entre la posición inicial del joystick y la del mouse
-            visibilidad=0, 0, 0, 150
+            visibilidad=0, 0, 0, 150 #Variable para modificar la visibilidad de los puntos (actualmente visible)
 
             if dist>radJ: #Si la distancia es mayor al radio máximo
                 angu=math.atan2(dy, dx) #Obtener el angulo contiguo al origen, formado por el triángulo rectangulo con C.O=dy y C.A=dx, donde dy y dx son las distancias del mouse al punto inicial
@@ -93,35 +113,40 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             else:
                 posJx, posJy=mouse_x, mouse_y #La posición del joystick es igual a la posición del mouse
 
-            if not activoB:
-                tiP=0
-                parabP=[]
-                dx=posJx-400
-                dy=posJy-300
-                dist=math.sqrt(dx**2+dy**2)
-                angu=math.atan2(dy, dx)
-                    
-                if dist>0:
-                    vel=(velM/radJ)*dist    
-                    velBx=-vel*math.cos(angu)
-                    velBy=-vel*math.sin(angu)
+            if not activoB: #Si el balón no está activo
+                tiP=0 #Reiniciar el tiempo inicial
+                parabP=[] #Limpiar el arreglo con la posición de los puntos
+                dx=posJx-400 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje X
+                dy=posJy-300 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje Y
+                dist=math.sqrt(dx**2+dy**2) #Obtener distancia entre la posición inicial y la posición final del joystick
+                angu=math.atan2(dy, dx) #Obtener el angulo contiguo al origen, formado por el triángulo rectangulo con C.O=dy y C.A=dx, donde dy y dx son las distancias del joystick al punto inicial
+                
+                if dist>0: #Si la distancia es mayor a 0
+                    vel=(velM/radJ)*dist #Obtener la magnitud de la velocidad (donde la velocidad máxima será 10m/s o 3780.71 px/s)
+                    velBx=-vel*math.cos(angu) #Obtener magnitudes para el eje X (negativo por que se lanzara en dirección contraria al joystick)
+                    velBy=-vel*math.sin(angu) #Obtener magnitudes para el eje Y (negativo por que se lanzara en dirección contraria al joystick)
                 else:
-                    velBx, velBy=0, 0
+                    velBx, velBy=0, 0 #El balón no tendrá velocidad
 
-                for i in range(1, 10):
-                    x=(posBx+45)+velBx*tiP
-                    y=(posBy+45)+velBy*tiP+0.5*grav*tiP**2
-                    parabP.append((int(x), int(y)))
-                    tiP+=dtP
-                cargar=True
+                for i in range(1, 10): #For del 1 al 9
+                    x=(posBx+45)+velBx*tiP #Obtener la posición en el eje X del punto en el tiempo "i"
+                    y=(posBy+45)+velBy*tiP+0.5*grav*tiP**2 #Obtener la posición en el eje X del punto en el tiempo "i"
+                    parabP.append((int(x), int(y))) #Almacenar la posición del punto "i" en el primer espacio libre del arreglo
+                    tiP+=dtP #Aumentar el tiempo inicial para cada iteración
+                cargar=True #Indicar al juego que debe cargar los puntos
+
+                velT=f"Velocidad: {int(math.sqrt(velBx**2+velBy**2))} px/s"
+                anguT=f"Ángulo: {int(-(math.degrees(angu)-180))}°"
+                velText=fuente.render(velT, True, (0, 0, 0))
+                anguText=fuente.render(anguT, True, (0, 0, 0))
         
         elif event.type==pygame.MOUSEBUTTONUP and activoJ: #Si ese evento es "pygame.MOUSEBUTTONUP" (Soltar click derecho)
             if activoJ and not activoB: #Si el joystick está activo
                 dx=posJx-400 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje X
-                dy=posJy-300 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje X
+                dy=posJy-300 #Obtener distancia entre la posición inicial y la posición final del joystick en el eje Y
                 dist=math.sqrt(dx**2 + dy**2) #Obtener distancia entre la posición inicial y la posición final del joystick
                 angu=math.atan2(dy, dx) #Obtener el angulo contiguo al origen, formado por el triángulo rectangulo con C.O=dy y C.A=dx, donde dy y dx son las distancias del joystick al punto inicial
-
+                
                 if dist>0: #Si la distancia es mayor a 0
                     vel=(velM/radJ)*dist #Obtener la magnitud de la velocidad (donde la velocidad máxima será 10m/s o 3780.71 px/s)       
                     velBx=-vel*math.cos(angu) #Obtener magnitudes para el eje X (negativo por que se lanzara en dirección contraria al joystick)
@@ -136,7 +161,7 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             posJx, posJy=400, 300 #Reiniciar la posición del joystick
 
     if activoB: #Si el balón está activo
-        visibilidad=0, 0, 0, 0
+        visibilidad=0, 0, 0, 0 #Variable para modificar la visibilidad de los puntos (actualmente invisible)
         dt=clock.tick(120)/1000 #Diferencial de tiempo
         PposBx, PposBy=posBx, posBy #Guardar valor de la posición en la primer iteración del reloj
         velBy+=grav*dt #Calcular la velocidad a partir de la gravedad en el eje Y
@@ -181,11 +206,18 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
             posBx, posBy=PposBx, PposBy
             velBx, velBy=func_col(cent_bal, p2, velBx, velBy, -reboteB)
 
-        if tiemLanz and pygame.time.get_ticks()-tiemLanz>5000: #Si "tiemLanz" no es "None", y el tiempo transcurrido desde que se inicializo el reloj menos el tiempo que transcurrio desde el lanzamiento, es mayor a 5 segundos (5000 milisegundos)
+        if func_dist((cent_bal), (642, 165))<=20 and velBy>0 and encestado==False:
+            cont_punt+=1
+            encestado=True
+            canasta=f"Canastas: {int(cont_punt)}"
+            canastText=fuente.render(canasta, True, (0, 0, 0))
+
+        if tiemLanz and pygame.time.get_ticks()-tiemLanz>4000: #Si "tiemLanz" no es "None", y el tiempo transcurrido desde que se inicializo el reloj menos el tiempo que transcurrio desde el lanzamiento, es mayor a 5 segundos (5000 milisegundos)
             posBx, posBy=30, 420 #Devolverr balon a su posición inicial
             velBx, velBy=0, 0 #Igualar el valor de las velocidades en cada eje a 0
             tiemLanz=None #Reiniciar la variable "tiemLanz"
             activoB=False #Establecer al balón como inactivo
+            encestado=False
 
     opacidad.fill((0, 0, 0, 0)) #Limpiar la superfice "opacidad"
 
@@ -196,7 +228,7 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
     pygame.draw.circle(opacidad, (0, 0, 0, 0), (581, 165), 1) #Dibujar puntos de colisión de la canasta
     pygame.draw.circle(opacidad, (0, 0, 0, 0), (703, 165), 1)
 
-    if cargar==True:
+    if cargar==True: #Si cargar es "True", mostrar los puntos
         pygame.draw.circle(opacidad, visibilidad, parabP[0], 4)
         pygame.draw.circle(opacidad, visibilidad, parabP[1], 4)
         pygame.draw.circle(opacidad, visibilidad, parabP[2], 4)
@@ -210,6 +242,10 @@ while running: #Mientras la variable "running" sea "True", se ejecuta el program
     screen.fill((225, 225, 225)) #Rellenar el fondo de la ventana
     screen.blit(fondo, (0, 0)) #Insertar imagen de fondo con inicio en 0, 0
     screen.blit(opacidad, (0, 0)) #Insertar superficie para objetos con opacidad
+    screen.blit(velText, (20, 545))
+    screen.blit(anguText, (20, 565))
+    screen.blit(canastText, (260, 545))
+    screen.blit(tiemText, (260, 565))
     screen.blit(balon, (posBx, posBy)) #Insertar imagen del balon iniciando en la posición dada mediante variables
 
     pygame.display.flip() #Actualizar la ventana para cargar los cambios
